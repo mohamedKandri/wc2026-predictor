@@ -19,176 +19,94 @@ from ml_model import train_model, load_model, predict_ml
 import friends as _friends
 
 st.set_page_config(
-    page_title="World Cup 2026 Predictor",
-    page_icon="⚽",
+    page_title="Proball",
+    page_icon="🏆",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@400;500;600;700&display=swap');
-
     [data-testid="stSidebar"]        { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
     /* ── Base ── */
-    .stApp {
-        background: #050d1f;
-        background-image:
-            radial-gradient(ellipse at 50% -10%, rgba(0,198,255,0.07) 0%, transparent 55%),
-            radial-gradient(ellipse at 95% 90%,  rgba(59,130,246,0.04) 0%, transparent 45%);
-        font-family: 'Inter', sans-serif;
-    }
+    .stApp { background: #0e0e0e; font-family: system-ui, -apple-system, sans-serif; }
     .main .block-container { padding: 0.5rem 2rem 2rem; max-width: 100%; }
 
     /* ── Typography ── */
-    h1 { font-family:'Orbitron',sans-serif !important; color:#e2e8f0 !important;
-         letter-spacing:0.04em; font-weight:700 !important; }
-    h2, h3, h4 { font-family:'Inter',sans-serif !important; color:#94a3b8 !important; font-weight:600 !important; }
-    p, li { color:#cbd5e1; }
+    h1 { color: #f0f0f0 !important; font-weight: 700 !important; letter-spacing: -.3px; }
+    h2, h3, h4 { color: #888 !important; font-weight: 600 !important; }
+    p, li { color: #888; }
 
-    /* ── Glass metric cards with shimmer ── */
+    /* ── Metric cards ── */
     .metric-card {
-        background: linear-gradient(135deg, #0b1628 0%, #0d1f38 100%);
-        border: 1px solid rgba(0,198,255,0.14);
-        border-radius: 12px;
+        background: #161616;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
         padding: 18px 14px;
         text-align: center;
         margin: 4px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.55);
-        transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s;
-        position: relative;
-        overflow: hidden;
     }
-    .metric-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: -100%; width: 60%; height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(0,198,255,0.07), transparent);
-        transition: left 0.55s ease;
-        pointer-events: none;
-    }
-    .metric-card:hover { transform: translateY(-2px);
-        box-shadow: 0 10px 36px rgba(0,0,0,0.65), 0 0 24px rgba(0,198,255,0.1);
-        border-color: rgba(0,198,255,0.38); }
-    .metric-card:hover::before { left: 160%; }
-    .metric-card h3 { font-family:'Orbitron',sans-serif; font-size:1.9rem;
-                      margin:0; font-weight:700; color:white !important; }
-    .metric-card p  { color:#475569; margin:0; font-size:0.75rem;
-                      text-transform:uppercase; letter-spacing:0.09em; margin-top:4px; }
+    .metric-card h3 { font-size: 1.9rem; margin: 0; font-weight: 700; color: white !important; }
+    .metric-card p  { color: #555; margin: 0; font-size: 0.75rem;
+                      text-transform: uppercase; letter-spacing: 0.09em; margin-top: 4px; }
 
-    /* ── Match cards ── */
-    .match-card {
-        background: linear-gradient(135deg, #0b1628, #0d1f38);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 12px;
-        padding: 16px;
-        margin: 8px 0;
-        position: relative;
-        overflow: hidden;
-        transition: border-color 0.22s, box-shadow 0.22s;
-    }
-    .match-card::after {
-        content: '';
-        position: absolute;
-        bottom: 0; left: 0; right: 0; height: 2px;
-        background: linear-gradient(90deg, #1d4ed8, #00c6ff, #1d4ed8);
-        opacity: 0;
-        transition: opacity 0.22s;
-    }
-    .match-card:hover { border-color: rgba(0,198,255,0.28);
-        box-shadow: 0 4px 24px rgba(0,198,255,0.08); }
-    .match-card:hover::after { opacity: 1; }
-
-    /* ── Prob bar animation ── */
-    @keyframes growBar {
-        from { width: 0 !important; }
-        to   { width: var(--w); }
-    }
+    /* ── Prob bar ── */
+    @keyframes growBar { from { width: 0 !important; } to { width: var(--w); } }
     .prob-fill {
         width: var(--w);
-        animation: growBar 0.7s cubic-bezier(0.4,0,0.2,1) both;
+        animation: growBar 0.6s ease both;
         display: flex; align-items: center; justify-content: center;
-        font-weight: 700; font-size: 0.88rem; color: white;
-        overflow: hidden; white-space: nowrap; gap: 5px;
-    }
-
-    /* ── Pulsing live dot ── */
-    @keyframes livepulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(0,198,255,0.8); }
-        60%       { box-shadow: 0 0 0 6px rgba(0,198,255,0); }
-    }
-    .live-dot {
-        display: inline-block; width: 8px; height: 8px;
-        background: #00c6ff; border-radius: 50%;
-        animation: livepulse 1.8s ease-in-out infinite;
-        vertical-align: middle; margin-right: 5px;
-    }
-
-    /* ── Info strip ── */
-    .info-strip {
-        background: #0b1628;
-        border-bottom: 1px solid rgba(0,198,255,0.12);
-        padding: 9px 20px;
-        display: flex; gap: 24px; align-items: center;
-        font-size: 0.78rem; flex-wrap: wrap;
-        margin-bottom: 6px;
+        font-weight: 700; font-size: 0.85rem; color: white;
+        overflow: hidden; white-space: nowrap; gap: 4px;
     }
 
     /* ── Tab navbar ── */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        background: #0b1628;
-        border-bottom: 1px solid rgba(0,198,255,0.1);
-        padding: 0 8px;
+        gap: 0; background: #0e0e0e;
+        border-bottom: 1px solid #2a2a2a; padding: 0 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 44px; padding: 0 20px;
-        color: #475569; font-size: 0.85rem; font-weight: 500;
-        background: transparent; border-bottom: 2px solid transparent;
-        border-radius: 0; letter-spacing: 0.02em;
+        height: 42px; padding: 0 16px;
+        color: #555; font-size: 0.82rem; font-weight: 500;
+        background: transparent; border-bottom: 2px solid transparent; border-radius: 0;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #00c6ff;
-        background: rgba(0,198,255,0.05);
-    }
+    .stTabs [data-baseweb="tab"]:hover { color: #f0f0f0; background: transparent; }
     .stTabs [aria-selected="true"] {
-        color: #00c6ff !important;
-        background: rgba(0,198,255,0.07);
-        border-bottom: 2px solid #00c6ff !important;
+        color: #f0f0f0 !important;
+        border-bottom: 2px solid #f5c518 !important;
     }
     .stTabs [data-baseweb="tab-highlight"] { display: none; }
-    .stTabs [data-baseweb="tab-panel"]     { padding: 20px 0; }
+    .stTabs [data-baseweb="tab-panel"]     { padding: 16px 0; }
 
     /* ── Streamlit overrides ── */
-    [data-testid="stMetricValue"] { font-family:'Orbitron',sans-serif !important; color:#00c6ff !important; }
-    [data-testid="stMetricLabel"] { color:#475569 !important; font-size:0.75rem !important;
-                                    text-transform:uppercase; letter-spacing:0.08em; }
-    .stSelectbox label, .stCheckbox label { color:#00c6ff !important; font-size:0.8rem !important;
-                                            text-transform:uppercase; letter-spacing:0.06em; }
-    .stNumberInput label { color:#00c6ff !important; font-size:0.8rem !important; text-transform:uppercase; }
-    .stDateInput label   { color:#00c6ff !important; font-size:0.8rem !important; text-transform:uppercase; }
+    [data-testid="stMetricValue"] { color: #4d9fff !important; }
+    [data-testid="stMetricLabel"] { color: #555 !important; font-size: 0.75rem !important;
+                                    text-transform: uppercase; letter-spacing: 0.08em; }
+    .stSelectbox label, .stCheckbox label { color: #888 !important; font-size: 0.8rem !important;
+                                            text-transform: uppercase; letter-spacing: 0.06em; }
+    .stNumberInput label { color: #888 !important; font-size: 0.8rem !important; text-transform: uppercase; }
+    .stDateInput label   { color: #888 !important; font-size: 0.8rem !important; text-transform: uppercase; }
 
     /* ── Buttons ── */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #0369a1, #0ea5e9);
-        color: white; font-weight: 600; border: none; border-radius: 8px;
-        font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: 0.06em;
+        background: #4d9fff; color: #0e0e0e;
+        font-weight: 600; border: none; border-radius: 8px; font-size: 0.82rem;
     }
-    .stButton > button[kind="primary"]:hover { opacity: 0.88; }
+    .stButton > button[kind="primary"]:hover { background: #3d8fff; }
     .stButton > button {
-        background: #0b1628; color: #00c6ff;
-        border: 1px solid rgba(0,198,255,0.25); border-radius: 8px;
+        background: #161616; color: #888;
+        border: 1px solid #2a2a2a; border-radius: 8px;
     }
 
     /* ── Misc ── */
-    hr { border-color: rgba(0,198,255,0.08) !important; }
+    hr { border-color: #2a2a2a !important; }
     [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
-    .streamlit-expanderHeader  { color: #00c6ff !important; font-size: 0.85rem !important; }
-    [data-testid="stInfo"]    { background: rgba(0,198,255,0.06); border-color: rgba(0,198,255,0.3); }
-    [data-testid="stSuccess"] { background: rgba(74,222,128,0.06); border-color: rgba(74,222,128,0.3); }
-    [data-testid="stWarning"] { background: rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.3); }
+    .streamlit-expanderHeader  { color: #888 !important; font-size: 0.85rem !important; }
+    [data-testid="stInfo"]    { background: rgba(77,159,255,0.06); border-color: rgba(77,159,255,0.3); }
+    [data-testid="stSuccess"] { background: rgba(61,220,132,0.06); border-color: rgba(61,220,132,0.3); }
+    [data-testid="stWarning"] { background: rgba(245,197,24,0.06);  border-color: rgba(245,197,24,0.3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -330,7 +248,6 @@ def get_team_form_string(team, n=10):
     return badges
 
 def render_match_card(home_team, away_team, blend, match_date=None, most_likely=None):
-    """Broadcast-style card used for every upcoming fixture."""
     if blend is None:
         return
     hw = blend['home_win']
@@ -339,69 +256,43 @@ def render_match_card(home_team, away_team, blend, match_date=None, most_likely=
     hf = flag(home_team)
     af = flag(away_team)
 
-    # Pre-compute optional sections — no nested expressions inside the main f-string
-    if match_date:
-        header_html = (
-            '<div style="text-align:center;margin-bottom:14px">'
-            '<span style="font-family:\'Orbitron\',sans-serif;font-size:0.65rem;'
-            'font-weight:700;color:#00c6ff;letter-spacing:0.18em">'
-            '<span class="live-dot"></span>'
-            f'FIFA WORLD CUP 2026 &middot; {match_date}'
-            '</span></div>'
-        )
-    else:
-        header_html = ''
-
-    if most_likely:
-        ml_html = (
-            '<div style="color:#475569;font-size:0.7rem;margin-top:10px;letter-spacing:0.06em">'
-            f'Most likely: <b style="color:#f59e0b">'
-            f'{home_team} {most_likely[0]}&ndash;{most_likely[1]} {away_team}'
-            '</b></div>'
-        )
-    else:
-        ml_html = ''
+    date_str = f'<span style="color:#555">{match_date}</span>' if match_date else ''
+    ml_str   = (f'<span style="color:#555;font-size:0.78rem">Most likely: '
+                f'<b style="color:#f5c518">{most_likely[0]}&ndash;{most_likely[1]}</b></span>'
+                if most_likely else '')
 
     st.markdown(
-        f'<div style="background:linear-gradient(135deg,#0b1628 0%,#0f2040 100%);'
-        f'border:1px solid rgba(0,198,255,0.18);border-radius:14px;'
-        f'padding:22px 24px;margin-bottom:6px;position:relative;overflow:hidden">'
-        f'<div style="position:absolute;top:0;left:0;width:40%;height:100%;'
-        f'background:linear-gradient(90deg,rgba(29,78,216,0.12),transparent)"></div>'
-        f'<div style="position:absolute;top:0;right:0;width:40%;height:100%;'
-        f'background:linear-gradient(270deg,rgba(185,28,28,0.12),transparent)"></div>'
-        f'<div style="position:absolute;top:0;left:0;right:0;height:2px;'
-        f'background:linear-gradient(90deg,transparent,rgba(0,198,255,0.6),transparent)"></div>'
-        f'<div style="position:relative;z-index:1">'
-        + header_html +
-        f'<div style="display:flex;justify-content:space-around;align-items:center">'
-        f'<div style="text-align:center;flex:1">'
-        f'<div style="font-size:2.2rem;line-height:1;margin-bottom:8px">{hf}</div>'
-        f'<div style="font-family:\'Orbitron\',sans-serif;font-size:0.82rem;font-weight:700;'
-        f'color:#e2e8f0;letter-spacing:0.03em">{home_team}</div>'
-        f'<div style="font-family:\'Orbitron\',sans-serif;font-size:1.55rem;font-weight:900;'
-        f'color:#60a5fa;margin-top:6px;text-shadow:0 0 16px rgba(96,165,250,0.35)">{hw}%</div>'
+        f'<div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;'
+        f'overflow:hidden;margin-bottom:8px">'
+        f'<div style="font-size:10px;color:#555;padding:7px 14px;border-bottom:1px solid #2a2a2a;'
+        f'display:flex;justify-content:space-between;align-items:center">'
+        f'{date_str}<span>FIFA World Cup 2026</span>{ml_str}'
         f'</div>'
-        f'<div style="text-align:center;padding:0 20px">'
-        f'<div style="font-family:\'Orbitron\',sans-serif;font-size:1.5rem;font-weight:900;'
-        f'color:#00c6ff;text-shadow:0 0 24px rgba(0,198,255,0.5);letter-spacing:0.12em">VS</div>'
-        f'<div style="color:#334155;font-family:\'Orbitron\',sans-serif;'
-        f'font-size:0.6rem;margin-top:8px;letter-spacing:0.1em">DRAW {d}%</div>'
-        + ml_html +
+        f'<div style="display:grid;grid-template-columns:1fr 50px 1fr;align-items:center;padding:12px 14px">'
+        f'<div style="text-align:center">'
+        f'<span style="font-size:24px">{hf}</span>'
+        f'<div style="font-size:12px;margin:4px 0;color:#f0f0f0;font-weight:500">{home_team}</div>'
+        f'<div style="font-size:18px;font-weight:700;color:#4d9fff">{hw}%</div>'
         f'</div>'
-        f'<div style="text-align:center;flex:1">'
-        f'<div style="font-size:2.2rem;line-height:1;margin-bottom:8px">{af}</div>'
-        f'<div style="font-family:\'Orbitron\',sans-serif;font-size:0.82rem;font-weight:700;'
-        f'color:#e2e8f0;letter-spacing:0.03em">{away_team}</div>'
-        f'<div style="font-family:\'Orbitron\',sans-serif;font-size:1.55rem;font-weight:900;'
-        f'color:#f87171;margin-top:6px;text-shadow:0 0 16px rgba(248,113,113,0.35)">{aw}%</div>'
+        f'<div style="text-align:center">'
+        f'<div style="font-size:10px;color:#555;font-weight:600">VS</div>'
+        f'<div style="font-size:13px;font-weight:500;color:#888;margin-top:3px">{d}%</div>'
+        f'<div style="font-size:9px;color:#555;margin-top:1px">draw</div>'
         f'</div>'
-        f'</div>'   # close flex row
-        f'</div>'   # close z-index wrapper
-        f'</div>',  # close outer card
+        f'<div style="text-align:center">'
+        f'<span style="font-size:24px">{af}</span>'
+        f'<div style="font-size:12px;margin:4px 0;color:#f0f0f0;font-weight:500">{away_team}</div>'
+        f'<div style="font-size:18px;font-weight:700;color:#ff4d6d">{aw}%</div>'
+        f'</div>'
+        f'</div>'
+        f'<div style="height:3px;display:flex">'
+        f'<div style="width:{hw}%;background:#4d9fff"></div>'
+        f'<div style="width:{d}%;background:#262626"></div>'
+        f'<div style="flex:1;background:#ff4d6d"></div>'
+        f'</div>'
+        f'</div>',
         unsafe_allow_html=True
     )
-    render_prob_bar(home_team, away_team, blend)
 
 
 def render_prob_bar(home_team, away_team, blend):
@@ -409,59 +300,53 @@ def render_prob_bar(home_team, away_team, blend):
     total = hw + d + aw
     if total == 0:
         return
-    hw_pct = hw / total * 100; d_pct = d / total * 100; aw_pct = aw / total * 100
+    hw_pct = hw / total * 100; d_pct = d / total * 100
     hf = flag(home_team); af = flag(away_team)
-    st.markdown(f"""
-    <div style="margin:10px 0 18px 0">
-        <div style="display:flex;border-radius:8px;overflow:hidden;height:46px;
-                    box-shadow:0 4px 20px rgba(0,0,0,0.6)">
-            <div class="prob-fill" style="--w:{hw_pct:.1f}%;
-                background:linear-gradient(90deg,#1e3a8a,#1d4ed8)">
-                <span style="font-size:0.9rem">{hf}</span>
-                <span style="font-family:'Orbitron',sans-serif;font-size:0.9rem">{hw}%</span>
-            </div>
-            <div class="prob-fill" style="--w:{d_pct:.1f}%;background:#0d1830;
-                border-left:1px solid rgba(255,255,255,0.05);
-                border-right:1px solid rgba(255,255,255,0.05);
-                font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#475569">
-                {d}%
-            </div>
-            <div class="prob-fill" style="--w:{aw_pct:.1f}%;
-                background:linear-gradient(90deg,#7f1d1d,#b91c1c)">
-                <span style="font-family:'Orbitron',sans-serif;font-size:0.9rem">{aw}%</span>
-                <span style="font-size:0.9rem">{af}</span>
-            </div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:5px;
-                    font-size:0.72rem;font-weight:600;letter-spacing:0.06em;padding:0 3px">
-            <span style="color:#60a5fa">{home_team[:20]}</span>
-            <span style="color:#334155">DRAW</span>
-            <span style="color:#f87171">{away_team[:20]}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="margin:10px 0 16px 0">'
+        f'<div style="display:flex;border-radius:8px;overflow:hidden;height:44px">'
+        f'<div class="prob-fill" style="--w:{hw_pct:.1f}%;background:#1a3a6e">'
+        f'<span style="font-size:0.88rem">{hf}</span>'
+        f'<span style="font-size:0.88rem;font-weight:700;color:#4d9fff">{hw}%</span>'
+        f'</div>'
+        f'<div class="prob-fill" style="--w:{d_pct:.1f}%;background:#1e1e1e;'
+        f'font-size:0.8rem;color:#555;border-left:1px solid #2a2a2a;border-right:1px solid #2a2a2a">'
+        f'{d}%'
+        f'</div>'
+        f'<div class="prob-fill" style="--w:100%;background:#4a1a28">'
+        f'<span style="font-size:0.88rem;font-weight:700;color:#ff4d6d">{aw}%</span>'
+        f'<span style="font-size:0.88rem">{af}</span>'
+        f'</div>'
+        f'</div>'
+        f'<div style="display:flex;justify-content:space-between;margin-top:5px;'
+        f'font-size:0.72rem;font-weight:600;padding:0 3px">'
+        f'<span style="color:#4d9fff">{home_team[:22]}</span>'
+        f'<span style="color:#555">DRAW</span>'
+        f'<span style="color:#ff4d6d">{away_team[:22]}</span>'
+        f'</div></div>',
+        unsafe_allow_html=True
+    )
 
-# ─── Info strip ───────────────────────────────────────────────────────────────
+# ─── Header ───────────────────────────────────────────────────────────────────
 _acc_str = f"{_model_acc*100:.1f}%" if _model_acc is not None else "~65%"
-st.markdown(f"""
-<div class="info-strip">
-    <div style="display:flex;align-items:center;gap:0">
-        <span class="live-dot"></span>
-        <span style="font-family:'Orbitron',sans-serif;font-size:0.82rem;font-weight:700;
-                     color:#00c6ff;letter-spacing:0.1em">WC 2026</span>
-    </div>
-    <span style="color:#1e3a5f">│</span>
-    <span style="color:#475569">Model: <b style="color:#e2e8f0">Poisson + GBT</b></span>
-    <span style="color:#475569">Accuracy:
-        <b style="color:#f59e0b;font-family:'Orbitron',sans-serif">{_acc_str}</b></span>
-    <span style="color:#475569">Baseline: <b style="color:#e2e8f0">48%</b></span>
-    <span style="color:#475569">Elo k:
-        <b style="color:#e2e8f0;font-family:'Orbitron',sans-serif">{_predictor.K_ELO:.4f}</b></span>
-    <span style="color:#475569">α_away:
-        <b style="color:#e2e8f0;font-family:'Orbitron',sans-serif">{_predictor.ALPHA_AWAY:.3f}</b></span>
-    <span style="color:#475569">Data: <b style="color:#e2e8f0">49,000+ matches</b></span>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    f'<div style="display:flex;align-items:center;justify-content:space-between;'
+    f'padding:14px 0 12px;border-bottom:1px solid #2a2a2a;margin-bottom:4px">'
+    f'<div style="display:flex;align-items:center;gap:12px">'
+    f'<span style="font-size:22px">⚽</span>'
+    f'<div><div style="font-size:15px;font-weight:700;color:#f0f0f0;letter-spacing:-.2px">Proball</div>'
+    f'<div style="font-size:10px;color:#555;margin-top:2px">Poisson · XGBoost · 49k matches</div></div>'
+    f'</div>'
+    f'<div style="display:flex;align-items:center;gap:8px">'
+    f'<div style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid rgba(61,220,132,.3);'
+    f'color:#3ddc84">{_acc_str} accuracy</div>'
+    f'<div style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #2a2a2a;color:#555">'
+    f'8-step pipeline</div>'
+    f'<div style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #2a2a2a;color:#555">'
+    f'WC 2026</div>'
+    f'</div></div>',
+    unsafe_allow_html=True
+)
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
 tab_home, tab_fixtures, tab_predict, tab_stats, tab_h2h, tab_sim, tab_live, tab_friends = st.tabs([
@@ -611,160 +496,239 @@ with tab_fixtures:
 # PREDICT
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_predict:
-    st.markdown("# Match Predictor")
 
-    col1, col2, col3 = st.columns([5, 1, 5])
-    with col1:
+    def _abbr(t): return (t[:2]).upper()
+    def _form_badges(tn, n=5):
+        html = ''
+        for b in get_team_form_string(tn, n):
+            if b == 'W':
+                html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(61,220,132,.15);color:#3ddc84">W</span>'
+            elif b == 'D':
+                html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(245,197,24,.15);color:#f5c518">D</span>'
+            else:
+                html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(255,77,109,.15);color:#ff4d6d">L</span>'
+        return f'<div style="display:flex;gap:3px;margin-top:8px">{html}</div>'
+
+    # ── Team pickers ───────────────────────────────────────────────────────
+    col_h, col_a = st.columns(2)
+
+    with col_h:
         home_team = st.selectbox("Home / Team 1", ALL_WC_TEAMS,
                                  index=ALL_WC_TEAMS.index('Brazil') if 'Brazil' in ALL_WC_TEAMS else 0,
-                                 format_func=lambda t: f"{flag(t)} {t}")
-    with col2:
-        st.markdown("<div style='text-align:center;margin-top:32px;font-family:Orbitron,sans-serif;font-size:1rem;color:#00c6ff;letter-spacing:0.1em'>VS</div>", unsafe_allow_html=True)
-    with col3:
+                                 format_func=lambda t: f"{flag(t)} {t}", key="pt_home")
+        hf = get_features(home_team)
+        if hf:
+            conf_h = detect_confederation(df, home_team)
+            st.markdown(
+                f'<div style="background:#161616;border:1px solid #2a2a2a;border-top:2px solid #4d9fff;'
+                f'border-radius:0 0 10px 10px;padding:12px 14px">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+                f'<span style="font-size:26px">{flag(home_team)}</span>'
+                f'<div><div style="font-size:14px;font-weight:600;color:#f0f0f0">{home_team}</div>'
+                f'<div style="font-size:10px;color:#555;margin-top:2px">{conf_h} &middot; Elo {hf["elo"]:.0f}</div></div>'
+                f'</div>'
+                f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px">'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#4d9fff">{hf.get("adj_scored", hf.get("h_scored", 0)):.2f}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Adj scored</div></div>'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#f0f0f0">{hf.get("avg_conceded", hf.get("h_conceded", 0)):.2f}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Adj conceded</div></div>'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#3ddc84">{hf["form"]:.0%}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Form</div></div>'
+                f'</div>'
+                + _form_badges(home_team) +
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    with col_a:
         away_team = st.selectbox("Away / Team 2", ALL_WC_TEAMS,
                                  index=ALL_WC_TEAMS.index('Morocco') if 'Morocco' in ALL_WC_TEAMS else 1,
-                                 format_func=lambda t: f"{flag(t)} {t}")
+                                 format_func=lambda t: f"{flag(t)} {t}", key="pt_away")
+        af = get_features(away_team)
+        if af:
+            conf_a = detect_confederation(df, away_team)
+            st.markdown(
+                f'<div style="background:#161616;border:1px solid #2a2a2a;border-top:2px solid #ff4d6d;'
+                f'border-radius:0 0 10px 10px;padding:12px 14px">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+                f'<span style="font-size:26px">{flag(away_team)}</span>'
+                f'<div><div style="font-size:14px;font-weight:600;color:#f0f0f0">{away_team}</div>'
+                f'<div style="font-size:10px;color:#555;margin-top:2px">{conf_a} &middot; Elo {af["elo"]:.0f}</div></div>'
+                f'</div>'
+                f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px">'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#ff4d6d">{af.get("adj_scored", af.get("a_scored", 0)):.2f}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Adj scored</div></div>'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#f0f0f0">{af.get("avg_conceded", af.get("a_conceded", 0)):.2f}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Adj conceded</div></div>'
+                f'<div style="background:#1e1e1e;border-radius:6px;padding:7px;text-align:center">'
+                f'<div style="font-size:14px;font-weight:600;color:#3ddc84">{af["form"]:.0%}</div>'
+                f'<div style="font-size:9px;color:#555;margin-top:2px">Form</div></div>'
+                f'</div>'
+                + _form_badges(away_team) +
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
-    neutral = st.checkbox("Neutral venue (World Cup)", value=True)
+    neutral = st.checkbox("Neutral venue", value=True, key="pt_neutral")
+    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
     if home_team == away_team:
-        st.warning("Please select two different teams.")
+        st.warning("Select two different teams.")
     else:
-        with st.spinner("Running 8-step prediction pipeline..."):
-            pred_result, blend = run_prediction(home_team, away_team, neutral=neutral)
-            hf = get_features(home_team)
-            af = get_features(away_team)
+        pred_result, blend = run_prediction(home_team, away_team, neutral=neutral)
 
         if pred_result is None:
-            st.error("Could not generate prediction — insufficient data for one or both teams.")
+            st.error("Could not generate prediction — insufficient data.")
         else:
-            st.markdown("---")
-            st.markdown("### Win Probabilities")
-            render_prob_bar(home_team, away_team, blend)
+            hw = pred_result['home_win']
+            dw = pred_result['draw']
+            aw = pred_result['away_win']
+            ml_i, ml_j = pred_result['most_likely']
+            _eps = pred_result['entropy_eps']
+            lh   = pred_result['lambda_home']
+            la   = pred_result['lambda_away']
+            ediff = pred_result['elo_diff']
 
-            col1, col2, col3, col4 = st.columns(4)
-            with col1: st.markdown(f'<div class="metric-card"><h3 style="color:#60a5fa">{pred_result["home_win"]}%</h3><p>{home_team} Win</p></div>', unsafe_allow_html=True)
-            with col2: st.markdown(f'<div class="metric-card"><h3 style="color:#64748b">{pred_result["draw"]}%</h3><p>Draw</p></div>', unsafe_allow_html=True)
-            with col3: st.markdown(f'<div class="metric-card"><h3 style="color:#f87171">{pred_result["away_win"]}%</h3><p>{away_team} Win</p></div>', unsafe_allow_html=True)
-            with col4:
-                _eps = pred_result['entropy_eps']
-                _conf_label = "🟢 HIGH" if _eps < 5 else ("🟡 MED" if _eps < 15 else "🔴 LOW")
-                _conf_color = "#4ade80" if _eps < 5 else ("#f59e0b" if _eps < 15 else "#f87171")
-                st.markdown(f'<div class="metric-card"><h3 style="color:{_conf_color};font-size:1.3rem">{_conf_label}</h3><p>Confidence · ε={_eps}%</p></div>', unsafe_allow_html=True)
+            # ── Big result card ────────────────────────────────────────────
+            st.markdown(
+                f'<div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;'
+                f'padding:24px 20px 0;margin:12px 0 0">'
+                f'<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:20px">'
+                f'<div style="text-align:center">'
+                f'<span style="font-size:42px;display:block;margin-bottom:6px">{flag(home_team)}</span>'
+                f'<div style="font-size:12px;color:#888">{home_team}</div>'
+                f'<div style="font-size:40px;font-weight:700;color:#4d9fff;letter-spacing:-1px;margin-top:6px">{hw}%</div>'
+                f'</div>'
+                f'<div style="text-align:center;padding:0 16px">'
+                f'<div style="font-size:24px;font-weight:600;color:#f0f0f0">{dw}%</div>'
+                f'<div style="font-size:10px;color:#555;margin-top:2px">draw</div>'
+                f'<div style="font-size:11px;color:#555;margin-top:8px;background:#1e1e1e;'
+                f'border-radius:6px;padding:4px 10px;display:inline-block">'
+                f'Most likely: {ml_i}&ndash;{ml_j}</div>'
+                f'</div>'
+                f'<div style="text-align:center">'
+                f'<span style="font-size:42px;display:block;margin-bottom:6px">{flag(away_team)}</span>'
+                f'<div style="font-size:12px;color:#888">{away_team}</div>'
+                f'<div style="font-size:40px;font-weight:700;color:#ff4d6d;letter-spacing:-1px;margin-top:6px">{aw}%</div>'
+                f'</div>'
+                f'</div>'
+                f'<div style="height:4px;display:flex;border-radius:0 0 10px 10px;overflow:hidden">'
+                f'<div style="width:{hw}%;background:#4d9fff"></div>'
+                f'<div style="width:{dw}%;background:#262626"></div>'
+                f'<div style="flex:1;background:#ff4d6d"></div>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
 
-            with st.expander("🔬 Pipeline Breakdown (8-step)"):
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.markdown("**NB Poisson**")
-                    st.caption(f"{pred_result['poisson_home_win']}% / {pred_result['poisson_draw']}% / {pred_result['poisson_away_win']}%")
-                with c2:
-                    st.markdown("**ML Model**")
-                    st.caption(f"{pred_result['ml_home_win']}% / {pred_result['ml_draw']}% / {pred_result['ml_away_win']}%")
-                with c3:
-                    st.markdown("**Disagreement**")
-                    st.caption(f"{pred_result['disagreement']:.1f} pts → {pred_result['blend_weight_poisson']}% NB / {100-pred_result['blend_weight_poisson']:.0f}% ML")
-                st.caption(f"ε={pred_result['entropy_eps']}% · Elo Δ={pred_result['elo_diff']:.0f} · xG {pred_result['lambda_home']}–{pred_result['lambda_away']}")
+            # ── Scorelines + Signals ───────────────────────────────────────
+            st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
+            col_sc, col_sig = st.columns(2)
 
-            st.markdown("---")
-            st.markdown("### Score Probability Matrix")
-            col1, col2 = st.columns([3, 2])
+            with col_sc:
+                top10 = pred_result['top_scores'][:10]
+                max_p = top10[0][2] if top10 else 1
+                sc_html = '<div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:14px">'
+                sc_html += '<div style="font-size:10px;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Top Scorelines</div>'
+                sc_html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
+                for i, (hg, ag, prob) in enumerate(top10):
+                    if i == 0:
+                        bg = 'background:rgba(77,159,255,.2);border:1px solid rgba(77,159,255,.3)'
+                    elif i < 4:
+                        bg = 'background:rgba(77,159,255,.08);border:1px solid rgba(77,159,255,.12)'
+                    else:
+                        bg = 'background:#1e1e1e;border:1px solid transparent'
+                    sc_html += (f'<div style="{bg};border-radius:6px;padding:6px 3px;text-align:center">'
+                                f'<div style="font-size:12px;font-weight:600;color:#f0f0f0">{hg}&ndash;{ag}</div>'
+                                f'<div style="font-size:9px;color:#555;margin-top:2px">{prob}%</div>'
+                                f'</div>')
+                sc_html += '</div></div>'
+                st.markdown(sc_html, unsafe_allow_html=True)
 
-            with col1:
+            with col_sig:
+                def _sig_bar(label, val, max_val, color):
+                    pct = min(100, val / max_val * 100) if max_val else 0
+                    val_str = f'{val:+.0f}' if label == 'Elo diff' else (f'{val:.0%}' if val <= 1 else str(val))
+                    return (f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+                            f'<span style="font-size:11px;color:#888;width:90px;flex-shrink:0">{label}</span>'
+                            f'<div style="flex:1;height:4px;background:#262626;border-radius:2px;overflow:hidden">'
+                            f'<div style="width:{pct:.0f}%;height:100%;background:{color};border-radius:2px"></div></div>'
+                            f'<span style="font-size:11px;font-weight:500;color:{color};width:44px;text-align:right">{val_str}</span>'
+                            f'</div>')
+
+                if _eps < 10:
+                    conf_c, conf_txt = '#3ddc84', f'High &middot; &epsilon;={_eps}%'
+                    conf_bg = 'rgba(61,220,132,.12)'
+                elif _eps < 25:
+                    conf_c, conf_txt = '#f5c518', f'Medium &middot; &epsilon;={_eps}%'
+                    conf_bg = 'rgba(245,197,24,.12)'
+                else:
+                    conf_c, conf_txt = '#ff4d6d', f'Low &middot; &epsilon;={_eps}%'
+                    conf_bg = 'rgba(255,77,109,.12)'
+
+                sig_html = '<div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:14px">'
+                sig_html += '<div style="font-size:10px;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Pipeline Signals</div>'
+                sig_html += _sig_bar('Elo diff',       ediff,              500,  '#4d9fff')
+                sig_html += _sig_bar(f'{home_team[:12]} form', hf['form'] if hf else 0.5, 1.0, '#3ddc84')
+                sig_html += _sig_bar(f'{away_team[:12]} form', af['form'] if af else 0.5, 1.0, '#ff4d6d')
+                sig_html += _sig_bar('xG home',        lh,                 4.0,  '#4d9fff')
+                sig_html += _sig_bar('xG away',        la,                 4.0,  '#ff4d6d')
+                sig_html += (f'<div style="display:flex;align-items:center;gap:8px;margin-top:12px;'
+                             f'padding-top:12px;border-top:1px solid #2a2a2a">'
+                             f'<span style="font-size:11px;color:#555">Confidence</span>'
+                             f'<span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;'
+                             f'background:{conf_bg};color:{conf_c}">{conf_txt}</span></div>')
+                sig_html += '</div>'
+                st.markdown(sig_html, unsafe_allow_html=True)
+
+            # ── Score matrix (collapsible) ─────────────────────────────────
+            with st.expander("Score probability matrix"):
                 max_show = 6
                 matrix = pred_result['score_matrix'][:max_show, :max_show] * 100
-                hover = [[f"{flag(home_team)} {home_team} {i}–{j} {away_team} {flag(away_team)}<br><b>{matrix[i][j]:.2f}%</b>"
+                hover = [[f"{home_team} {i}–{j} {away_team}<br><b>{matrix[i][j]:.2f}%</b>"
                           for j in range(max_show)] for i in range(max_show)]
                 text_labels = [[f"{matrix[i][j]:.1f}%" for j in range(max_show)] for i in range(max_show)]
                 fig_p = go.Figure(go.Heatmap(
                     z=matrix, x=list(range(max_show)), y=list(range(max_show)),
                     text=text_labels, texttemplate="%{text}",
-                    textfont={"size": 11, "color": "white", "family": "Orbitron"},
+                    textfont={"size": 11, "color": "white"},
                     hovertext=hover, hovertemplate="%{hovertext}<extra></extra>",
-                    colorscale=[[0,'#050d1f'],[0.3,'#0d2456'],[0.7,'#1a4db5'],[1,'#00c6ff']],
+                    colorscale=[[0,'#111'],[0.3,'#1a3a6e'],[0.7,'#1a4db5'],[1,'#4d9fff']],
                     showscale=False,
                 ))
-                ml_i, ml_j = pred_result['most_likely']
                 if ml_i < max_show and ml_j < max_show:
                     fig_p.add_shape(type='rect',
                         x0=ml_j-0.5, x1=ml_j+0.5, y0=ml_i-0.5, y1=ml_i+0.5,
-                        line=dict(color='#f59e0b', width=3),
-                        fillcolor='rgba(0,0,0,0)')
+                        line=dict(color='#f5c518', width=2), fillcolor='rgba(0,0,0,0)')
                 fig_p.update_layout(
-                    title=dict(text="Hover cells for exact probability",
-                               font=dict(color='#475569', size=12)),
-                    xaxis=dict(
-                        title=dict(text=f"{flag(away_team)} {away_team} Goals",
-                                   font=dict(color='#f87171')),
-                        tickmode='array', tickvals=list(range(max_show)),
-                        tickfont=dict(color='#94a3b8', family='Orbitron', size=10),
-                        gridcolor='rgba(255,255,255,0.03)'),
-                    yaxis=dict(
-                        title=dict(text=f"{flag(home_team)} {home_team} Goals",
-                                   font=dict(color='#60a5fa')),
-                        tickmode='array', tickvals=list(range(max_show)),
-                        tickfont=dict(color='#94a3b8', family='Orbitron', size=10),
-                        gridcolor='rgba(255,255,255,0.03)', autorange='reversed'),
-                    paper_bgcolor='#080e1f',
-                    plot_bgcolor='#080e1f',
-                    font=dict(color='#e2e8f0', family='Inter'),
-                    height=380, margin=dict(l=70, r=20, t=40, b=60),
+                    xaxis=dict(title=dict(text=f"{away_team} Goals", font=dict(color='#ff4d6d')),
+                               tickmode='array', tickvals=list(range(max_show)),
+                               tickfont=dict(color='#888', size=10), gridcolor='rgba(255,255,255,0.03)'),
+                    yaxis=dict(title=dict(text=f"{home_team} Goals", font=dict(color='#4d9fff')),
+                               tickmode='array', tickvals=list(range(max_show)),
+                               tickfont=dict(color='#888', size=10),
+                               gridcolor='rgba(255,255,255,0.03)', autorange='reversed'),
+                    paper_bgcolor='#161616', plot_bgcolor='#161616',
+                    font=dict(color='#f0f0f0'),
+                    height=360, margin=dict(l=70, r=20, t=20, b=60),
                 )
-                st.plotly_chart(fig_p, width='stretch')
+                st.plotly_chart(fig_p, use_container_width=True)
 
-            with col2:
-                st.markdown("#### Top 10 Most Likely Scores")
-                for i, (h_g, a_g, prob) in enumerate(pred_result['top_scores'][:10]):
-                    bar_w = int(prob / pred_result['top_scores'][0][2] * 100)
-                    medal = ["🥇","🥈","🥉"][i] if i < 3 else f"**{i+1}.**"
-                    st.markdown(f"""
-                    <div style="margin:4px 0;display:flex;align-items:center;gap:8px">
-                        <span style="width:24px;font-size:0.85rem">{medal}</span>
-                        <span style="color:#e2e8f0;font-family:'Orbitron',sans-serif;
-                                     font-size:0.9rem;font-weight:700;width:56px">{h_g}–{a_g}</span>
-                        <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:4px;height:14px">
-                            <div style="width:{bar_w}%;background:linear-gradient(90deg,#0369a1,#00c6ff);
-                                        height:100%;border-radius:4px"></div>
-                        </div>
-                        <span style="color:#475569;width:38px;text-align:right;
-                                     font-family:'Orbitron',sans-serif;font-size:0.75rem">{prob}%</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            st.markdown("---")
-            st.markdown("### Team Comparison")
-            col1, col2 = st.columns(2)
-            conf_labels = {'CAF':'AFCON','UEFA':'Euros','CONMEBOL':'Copa América',
-                           'CONCACAF':'Gold Cup','AFC':'Asian Cup','OFC':'OFC Cup'}
-
-            def form_badges(tn):
-                return " ".join(["🟢" if b=="W" else "🟡" if b=="D" else "🔴"
-                                  for b in get_team_form_string(tn, 8)])
-
-            with col1:
-                st.markdown(f"#### {flag(home_team)} {home_team}")
-                st.metric("Adj Goals Scored",   f"{hf['adj_scored']:.2f}")
-                st.metric("Adj Goals Conceded", f"{hf['avg_conceded']:.2f}")
-                st.metric("Overall Form",       f"{hf['form']:.0%}")
-                conf_h = detect_confederation(df, home_team)
-                st.metric(f"{conf_labels.get(conf_h,'Continental')} Form", f"{hf['cont_form']:.0%}")
-                st.markdown(f"**Recent:** {form_badges(home_team)}")
-                st.caption(f"Elo: {hf['elo']:.0f} · FIFA: {hf['fifa_points']:.0f} · {hf['matches_played']} matches")
-
-            with col2:
-                st.markdown(f"#### {flag(away_team)} {away_team}")
-                st.metric("Adj Goals Scored",   f"{af['adj_scored']:.2f}")
-                st.metric("Adj Goals Conceded", f"{af['adj_conceded']:.2f}")
-                st.metric("Overall Form",       f"{af['form']:.0%}")
-                conf_a = detect_confederation(df, away_team)
-                st.metric(f"{conf_labels.get(conf_a,'Continental')} Form", f"{af['cont_form']:.0%}")
-                st.markdown(f"**Recent:** {form_badges(away_team)}")
-                st.caption(f"Elo: {af['elo']:.0f} · FIFA: {af['fifa_points']:.0f} · {af['matches_played']} matches")
-
-            st.markdown("---")
-            st.markdown("### Expected Goals")
-            col1, col2 = st.columns(2)
-            with col1: st.markdown(f'<div class="metric-card"><h3 style="color:#60a5fa">{pred_result["lambda_home"]}</h3><p>{home_team} xG</p></div>', unsafe_allow_html=True)
-            with col2: st.markdown(f'<div class="metric-card"><h3 style="color:#f87171">{pred_result["lambda_away"]}</h3><p>{away_team} xG</p></div>', unsafe_allow_html=True)
+            with st.expander("Pipeline breakdown"):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.caption("NB Poisson")
+                    st.markdown(f"`{pred_result['poisson_home_win']}% / {pred_result['poisson_draw']}% / {pred_result['poisson_away_win']}%`")
+                with c2:
+                    st.caption("ML Model")
+                    st.markdown(f"`{pred_result['ml_home_win']}% / {pred_result['ml_draw']}% / {pred_result['ml_away_win']}%`")
+                with c3:
+                    st.caption("Disagreement")
+                    st.markdown(f"`{pred_result['disagreement']:.1f} pts · {pred_result['blend_weight_poisson']}% NB`")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TEAM STATS
