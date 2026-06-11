@@ -358,93 +358,89 @@ tab_home, tab_fixtures, tab_predict, tab_stats, tab_h2h, tab_sim, tab_live, tab_
 # HOME
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_home:
-    # ── Stats bar ──
     total_matches = len(WC2026)
     played_count  = int(WC2026['home_score'].notna().sum())
     remaining     = total_matches - played_count
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.markdown(f'<div class="metric-card"><h3>{total_matches}</h3><p>Total Fixtures</p></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="metric-card"><h3 style="color:#f59e0b">{played_count}</h3><p>Played</p></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class="metric-card"><h3 style="color:#00c6ff">{remaining}</h3><p>Upcoming</p></div>', unsafe_allow_html=True)
-    with col4: st.markdown(f'<div class="metric-card"><h3>{len(ALL_WC_TEAMS)}</h3><p>Teams</p></div>', unsafe_allow_html=True)
+    # ── Stat chips ──
+    st.markdown(
+        f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">'
+        f'<span style="background:#161616;border:1px solid #2a2a2a;border-radius:20px;'
+        f'padding:5px 14px;font-size:12px;color:#888">'
+        f'<b style="color:#f0f0f0">{total_matches}</b> fixtures</span>'
+        f'<span style="background:#161616;border:1px solid #2a2a2a;border-radius:20px;'
+        f'padding:5px 14px;font-size:12px;color:#888">'
+        f'<b style="color:#f5c518">{played_count}</b> played</span>'
+        f'<span style="background:#161616;border:1px solid #2a2a2a;border-radius:20px;'
+        f'padding:5px 14px;font-size:12px;color:#888">'
+        f'<b style="color:#4d9fff">{remaining}</b> upcoming</span>'
+        f'<span style="background:#161616;border:1px solid #2a2a2a;border-radius:20px;'
+        f'padding:5px 14px;font-size:12px;color:#888">'
+        f'<b style="color:#f0f0f0">{len(ALL_WC_TEAMS)}</b> teams</span>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Featured match hero ──
+    # ── Featured match ──
     upcoming_all = WC2026[WC2026['home_score'].isna()]
     if len(upcoming_all) > 0:
         feat = upcoming_all.iloc[0]
-        _, feat_blend = run_prediction(feat['home_team'], feat['away_team'])
-        feat_date = pd.to_datetime(feat['date']).strftime('%B %d, %Y')
+        feat_pred, feat_blend = run_prediction(feat['home_team'], feat['away_team'])
+        feat_date = pd.to_datetime(feat['date']).strftime('%b %d, %Y')
 
-        hw_disp = feat_blend['home_win'] if feat_blend else '--'
-        dr_disp = feat_blend['draw']     if feat_blend else '--'
-        aw_disp = feat_blend['away_win'] if feat_blend else '--'
-
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#0b1628 0%,#0f2040 100%);
-                    border:1px solid rgba(0,198,255,0.22);border-radius:16px;
-                    padding:32px;margin-bottom:8px;position:relative;overflow:hidden">
-            <div style="position:absolute;top:0;left:0;width:42%;height:100%;
-                        background:linear-gradient(90deg,rgba(29,78,216,0.14),transparent)"></div>
-            <div style="position:absolute;top:0;right:0;width:42%;height:100%;
-                        background:linear-gradient(270deg,rgba(185,28,28,0.14),transparent)"></div>
-            <div style="position:absolute;top:0;left:0;right:0;height:2px;
-                        background:linear-gradient(90deg,transparent,#00c6ff,transparent)"></div>
-            <div style="position:relative;z-index:1">
-                <div style="text-align:center;margin-bottom:22px">
-                    <span style="font-family:'Orbitron',sans-serif;font-size:0.68rem;font-weight:700;
-                                 color:#00c6ff;letter-spacing:0.2em">
-                        <span class="live-dot"></span>NEXT MATCH · FIFA WORLD CUP 2026 · {feat_date}
-                    </span>
-                </div>
-                <div style="display:flex;justify-content:space-around;align-items:center">
-                    <div style="text-align:center;flex:1">
-                        <div style="font-size:3.2rem;line-height:1;margin-bottom:10px">{flag(feat['home_team'])}</div>
-                        <div style="font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:700;
-                                    color:#e2e8f0;letter-spacing:0.04em">{feat['home_team']}</div>
-                        <div style="font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;
-                                    color:#60a5fa;margin-top:8px;
-                                    text-shadow:0 0 20px rgba(96,165,250,0.4)">{hw_disp}%</div>
-                    </div>
-                    <div style="text-align:center;padding:0 28px">
-                        <div style="font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;
-                                    color:#00c6ff;text-shadow:0 0 30px rgba(0,198,255,0.6);
-                                    letter-spacing:0.12em">VS</div>
-                        <div style="color:#334155;font-family:'Orbitron',sans-serif;
-                                    font-size:0.65rem;margin-top:10px;letter-spacing:0.1em">
-                            DRAW {dr_disp}%
-                        </div>
-                    </div>
-                    <div style="text-align:center;flex:1">
-                        <div style="font-size:3.2rem;line-height:1;margin-bottom:10px">{flag(feat['away_team'])}</div>
-                        <div style="font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:700;
-                                    color:#e2e8f0;letter-spacing:0.04em">{feat['away_team']}</div>
-                        <div style="font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;
-                                    color:#f87171;margin-top:8px;
-                                    text-shadow:0 0 20px rgba(248,113,113,0.4)">{aw_disp}%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
         if feat_blend:
-            render_prob_bar(feat['home_team'], feat['away_team'], feat_blend)
+            hw = feat_blend['home_win']
+            dw = feat_blend['draw']
+            aw = feat_blend['away_win']
+            ml_i, ml_j = feat_pred['most_likely'] if feat_pred else (1, 0)
+            st.markdown(
+                f'<div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;'
+                f'overflow:hidden;margin-bottom:16px">'
+                f'<div style="font-size:10px;color:#555;padding:8px 16px;border-bottom:1px solid #2a2a2a;'
+                f'display:flex;justify-content:space-between;align-items:center">'
+                f'<span>NEXT MATCH &middot; FIFA WORLD CUP 2026</span>'
+                f'<span>{feat_date}</span>'
+                f'</div>'
+                f'<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;'
+                f'gap:8px;padding:28px 20px 24px">'
+                f'<div style="text-align:center">'
+                f'<span style="font-size:44px;display:block;margin-bottom:8px">{flag(feat["home_team"])}</span>'
+                f'<div style="font-size:13px;color:#888;margin-bottom:8px">{feat["home_team"]}</div>'
+                f'<div style="font-size:44px;font-weight:700;color:#4d9fff;letter-spacing:-1px">{hw}%</div>'
+                f'</div>'
+                f'<div style="text-align:center;padding:0 20px">'
+                f'<div style="font-size:22px;font-weight:600;color:#f0f0f0">{dw}%</div>'
+                f'<div style="font-size:10px;color:#555;margin-top:2px">draw</div>'
+                f'<div style="font-size:11px;color:#555;margin-top:10px;background:#1e1e1e;'
+                f'border-radius:6px;padding:4px 10px;display:inline-block">'
+                f'{ml_i}&ndash;{ml_j}</div>'
+                f'</div>'
+                f'<div style="text-align:center">'
+                f'<span style="font-size:44px;display:block;margin-bottom:8px">{flag(feat["away_team"])}</span>'
+                f'<div style="font-size:13px;color:#888;margin-bottom:8px">{feat["away_team"]}</div>'
+                f'<div style="font-size:44px;font-weight:700;color:#ff4d6d;letter-spacing:-1px">{aw}%</div>'
+                f'</div>'
+                f'</div>'
+                f'<div style="height:4px;display:flex">'
+                f'<div style="width:{hw}%;background:#4d9fff"></div>'
+                f'<div style="width:{dw}%;background:#262626"></div>'
+                f'<div style="flex:1;background:#ff4d6d"></div>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
 
-    # ── Next 4 matches ──
-    st.markdown("### Upcoming Fixtures")
-    rest = upcoming_all.iloc[1:5]
+    # ── Upcoming fixtures ──
+    st.markdown(
+        '<div style="font-size:11px;color:#555;letter-spacing:.1em;text-transform:uppercase;'
+        'margin:4px 0 10px">Upcoming Fixtures</div>',
+        unsafe_allow_html=True
+    )
+    rest = upcoming_all.iloc[1:6]
     for _, row in rest.iterrows():
-        _, blend = run_prediction(row['home_team'], row['away_team'])
-        match_date = pd.to_datetime(row['date']).strftime('%B %d, %Y')
-        render_match_card(row['home_team'], row['away_team'], blend, match_date=match_date)
-
-    st.markdown("---")
-    st.markdown("### Pipeline Overview")
-    c1, c2 = st.columns(2)
-    with c1: st.info("**Gradient Boosting + Poisson Blend**\n\nCombines statistical Poisson expected goals model with a machine learning classifier trained on 20,000+ international matches from 2005–2025.")
-    with c2: st.info("**Features:** Goals scored/conceded · Recent form (last 20) · H2H record (last 10) · Tournament weight · Elo rating · FIFA ranking · Home advantage")
+        feat_pred2, blend2 = run_prediction(row['home_team'], row['away_team'])
+        match_date2 = pd.to_datetime(row['date']).strftime('%b %d, %Y')
+        ml2 = feat_pred2['most_likely'] if feat_pred2 else None
+        render_match_card(row['home_team'], row['away_team'], blend2, match_date=match_date2, most_likely=ml2)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FIXTURES
