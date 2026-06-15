@@ -204,11 +204,11 @@ def quality_adjusted_stats(df, fifa_df, team, as_of_date, n=20):
 _FIFA_MEAN, _FIFA_STD = 1000.0, 300.0
 _ELO_MEAN,  _ELO_STD  = 1500.0, 150.0
 
-def get_primary_strength(fifa_pts, elo, alpha=0.85):
+def get_primary_strength(fifa_pts, elo, alpha=0.75):
     """
     Z-score normalize both ratings to a common scale, then blend.
-    alpha=0.85 weights FIFA (current ranking) heavily over historical Elo,
-    preventing decades-old dominance from over-riding current team strength.
+    alpha=0.75 weights FIFA (current ranking) over Elo while letting recent
+    form still influence predictions for teams whose ranking lags their results.
     Output is in standardized units; callers should treat it as a relative signal.
     """
     z_fifa = (fifa_pts - _FIFA_MEAN) / _FIFA_STD
@@ -369,10 +369,10 @@ def build_elo_timeline(df, k=30, initial=1500, min_year=None):
             mult = 1 + (gd>1)*0.5 + (gd>3)*0.5
             elo[h] = r_h + k * mult * (act_h - exp_h)
             elo[a] = r_a + k * mult * ((1-act_h) - (1-exp_h))
-        # Pull all seeded Elos toward initial by 60% so historical dominance
+        # Pull all seeded Elos toward initial by 25% so historical dominance
         # is dampened but teams don't all start equal.
         for team in elo:
-            elo[team] = initial + 0.4 * (elo[team] - initial)
+            elo[team] = initial + 0.75 * (elo[team] - initial)
         sorted_df = sorted_df[sorted_df['date'] >= cutoff]
     for _, row in sorted_df.iterrows():
         h, a = row['home_team'], row['away_team']
