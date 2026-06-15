@@ -306,24 +306,42 @@ def get_team_features(df, team, as_of_date, n_matches=20,
         'last_match':       matches['date'].max(),
     }
 
-def get_h2h_advantage(df, team1, team2, n=10):
+def get_h2h_advantage(df, team1, team2, n=10, shootouts=None):
     h2h = df[
         (((df['home_team']==team1)&(df['away_team']==team2))|
          ((df['home_team']==team2)&(df['away_team']==team1))) &
         (df['home_score'].notna())
     ].sort_values('date').tail(n)
     if len(h2h) == 0: return 0.0
+
+    # Build a lookup of penalty winners for draws: (date, home, away) -> winner
+    penalty_winners = {}
+    if shootouts is not None and len(shootouts) > 0:
+        for _, sr in shootouts.iterrows():
+            key = (str(sr['date'])[:10], sr['home_team'], sr['away_team'])
+            penalty_winners[key] = sr['winner']
+
     now = pd.Timestamp.now()
-    T_DAYS = 4 * 365.25  # 4-year half-life: matches 4 years ago count ~37% as much
+    T_DAYS = 4 * 365.25
     pts, total_w = 0.0, 0.0
     for _, row in h2h.iterrows():
         days_ago = max((now - pd.to_datetime(row['date'])).days, 0)
         w = float(np.exp(-days_ago / T_DAYS))
-        result = (
-            1.0 if (row['home_score']>row['away_score'] and row['home_team']==team1) or
-                   (row['away_score']>row['home_score'] and row['away_team']==team1)
-            else 0.5 if row['home_score']==row['away_score'] else 0.0
-        )
+        hs, as_ = row['home_score'], row['away_score']
+        if hs > as_:
+            result = 1.0 if row['home_team'] == team1 else 0.0
+        elif as_ > hs:
+            result = 1.0 if row['away_team'] == team1 else 0.0
+        else:
+            # Draw in 90 min — check if penalties decided the tie
+            key = (str(row['date'])[:10], row['home_team'], row['away_team'])
+            pen_winner = penalty_winners.get(key)
+            if pen_winner == team1:
+                result = 0.75  # penalty win counts more than draw, less than win
+            elif pen_winner is not None and pen_winner != team1:
+                result = 0.25  # penalty loss
+            else:
+                result = 0.5
         pts += w * result
         total_w += w
     return (pts / total_w - 0.5) if total_w > 0 else 0.0

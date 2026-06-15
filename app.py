@@ -230,7 +230,7 @@ def run_prediction(home_team, away_team, neutral=True):
     if hf is None or af is None:
         return None, None
     avg_h, avg_a = compute_global_averages(df, TODAY)
-    h2h = get_h2h_advantage(df, home_team, away_team, n=10)
+    h2h = get_h2h_advantage(df, home_team, away_team, n=10, shootouts=shootouts)
     result = full_predict(hf, af, model, avg_h, avg_a, neutral=neutral, h2h_diff=h2h)
     blend = {'home_win': result['home_win'], 'draw': result['draw'], 'away_win': result['away_win']}
     return result, blend
