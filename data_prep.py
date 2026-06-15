@@ -375,42 +375,49 @@ def compute_global_averages(df, as_of_date):
     return recent['home_score'].mean(), recent['away_score'].mean()
 
 # ─── Elo timeline (kept for recency signal) ───────────────────────────────────
-def build_elo_timeline(df, k=30, initial=1500, min_year=None):
+def build_elo_timeline(df, k=30, initial=1500, min_year=None, shootouts=None):
+    # Build penalty lookup: (date_str, home, away) -> winner
+    pen_winners = {}
+    if shootouts is not None and len(shootouts) > 0:
+        for _, sr in shootouts.iterrows():
+            pen_winners[(str(sr['date'])[:10], sr['home_team'], sr['away_team'])] = sr['winner']
+
     elo = {}
     records = []
     sorted_df = df[df['home_score'].notna()].sort_values('date')
-    # Warm-start: if min_year set, run full history first to seed Elo, then
-    # reset to initial and replay only from min_year so current ratings reflect
-    # only recent results without the cold-start penalty for newer nations.
-    if min_year is not None:
-        cutoff = pd.Timestamp(f'{min_year}-01-01')
-        for _, row in sorted_df[sorted_df['date'] < cutoff].iterrows():
+
+    def _update(sorted_slice):
+        for _, row in sorted_slice.iterrows():
             h, a = row['home_team'], row['away_team']
             r_h = elo.get(h, initial); r_a = elo.get(a, initial)
             exp_h = 1 / (1 + 10**((r_a - r_h)/400))
             hs, as_ = row['home_score'], row['away_score']
-            act_h = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)
+            if hs > as_:
+                act_h = 1.0
+            elif as_ > hs:
+                act_h = 0.0
+            else:
+                # Check penalties — winner gets 0.65, loser gets 0.35
+                key = (str(row['date'])[:10], h, a)
+                pen = pen_winners.get(key)
+                act_h = 0.65 if pen == h else (0.35 if pen == a else 0.5)
             gd = abs(hs - as_)
             mult = 1 + (gd>1)*0.5 + (gd>3)*0.5
             elo[h] = r_h + k * mult * (act_h - exp_h)
             elo[a] = r_a + k * mult * ((1-act_h) - (1-exp_h))
-        # Pull all seeded Elos toward initial by 25% so historical dominance
-        # is dampened but teams don't all start equal.
+            records.append({'date': row['date'], 'team': h, 'elo': elo[h]})
+            records.append({'date': row['date'], 'team': a, 'elo': elo[a]})
+
+    if min_year is not None:
+        cutoff = pd.Timestamp(f'{min_year}-01-01')
+        _update(sorted_df[sorted_df['date'] < cutoff])
         for team in elo:
             elo[team] = initial + 0.75 * (elo[team] - initial)
-        sorted_df = sorted_df[sorted_df['date'] >= cutoff]
-    for _, row in sorted_df.iterrows():
-        h, a = row['home_team'], row['away_team']
-        r_h = elo.get(h, initial); r_a = elo.get(a, initial)
-        exp_h = 1 / (1 + 10**((r_a - r_h)/400))
-        hs, as_ = row['home_score'], row['away_score']
-        act_h = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)
-        gd = abs(hs - as_)
-        mult = 1 + (gd>1)*0.5 + (gd>3)*0.5
-        elo[h] = r_h + k * mult * (act_h - exp_h)
-        elo[a] = r_a + k * mult * ((1-act_h) - (1-exp_h))
-        records.append({'date': row['date'], 'team': h, 'elo': elo[h]})
-        records.append({'date': row['date'], 'team': a, 'elo': elo[a]})
+        records.clear()
+        _update(sorted_df[sorted_df['date'] >= cutoff])
+    else:
+        _update(sorted_df)
+
     return pd.DataFrame(records), elo
 
 # ─── Fast ML Dataset Builder ──────────────────────────────────────────────────
