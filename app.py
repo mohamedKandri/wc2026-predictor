@@ -117,7 +117,7 @@ def get_data():
 
 @st.cache_resource
 def get_model_and_elo(df):
-    _, current_elo = build_elo_timeline(df[df['home_score'].notna()])
+    _, current_elo = build_elo_timeline(df[df['home_score'].notna()], min_year=2018)
     fifa_df = load_fifa_rankings()
     df_feat = build_ml_dataset(df, min_year=2005)
     model = load_model()

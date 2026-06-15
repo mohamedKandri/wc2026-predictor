@@ -204,10 +204,11 @@ def quality_adjusted_stats(df, fifa_df, team, as_of_date, n=20):
 _FIFA_MEAN, _FIFA_STD = 1000.0, 300.0
 _ELO_MEAN,  _ELO_STD  = 1500.0, 150.0
 
-def get_primary_strength(fifa_pts, elo, alpha=0.7):
+def get_primary_strength(fifa_pts, elo, alpha=0.85):
     """
     Z-score normalize both ratings to a common scale, then blend.
-    alpha=0.7 weights FIFA (stable long-term rank) over Elo (short-term form).
+    alpha=0.85 weights FIFA (current ranking) heavily over historical Elo,
+    preventing decades-old dominance from over-riding current team strength.
     Output is in standardized units; callers should treat it as a relative signal.
     """
     z_fifa = (fifa_pts - _FIFA_MEAN) / _FIFA_STD
@@ -349,10 +350,31 @@ def compute_global_averages(df, as_of_date):
     return recent['home_score'].mean(), recent['away_score'].mean()
 
 # ─── Elo timeline (kept for recency signal) ───────────────────────────────────
-def build_elo_timeline(df, k=30, initial=1500):
+def build_elo_timeline(df, k=30, initial=1500, min_year=None):
     elo = {}
     records = []
-    for _, row in df[df['home_score'].notna()].sort_values('date').iterrows():
+    sorted_df = df[df['home_score'].notna()].sort_values('date')
+    # Warm-start: if min_year set, run full history first to seed Elo, then
+    # reset to initial and replay only from min_year so current ratings reflect
+    # only recent results without the cold-start penalty for newer nations.
+    if min_year is not None:
+        cutoff = pd.Timestamp(f'{min_year}-01-01')
+        for _, row in sorted_df[sorted_df['date'] < cutoff].iterrows():
+            h, a = row['home_team'], row['away_team']
+            r_h = elo.get(h, initial); r_a = elo.get(a, initial)
+            exp_h = 1 / (1 + 10**((r_a - r_h)/400))
+            hs, as_ = row['home_score'], row['away_score']
+            act_h = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)
+            gd = abs(hs - as_)
+            mult = 1 + (gd>1)*0.5 + (gd>3)*0.5
+            elo[h] = r_h + k * mult * (act_h - exp_h)
+            elo[a] = r_a + k * mult * ((1-act_h) - (1-exp_h))
+        # Pull all seeded Elos toward initial by 60% so historical dominance
+        # is dampened but teams don't all start equal.
+        for team in elo:
+            elo[team] = initial + 0.4 * (elo[team] - initial)
+        sorted_df = sorted_df[sorted_df['date'] >= cutoff]
+    for _, row in sorted_df.iterrows():
         h, a = row['home_team'], row['away_team']
         r_h = elo.get(h, initial); r_a = elo.get(a, initial)
         exp_h = 1 / (1 + 10**((r_a - r_h)/400))
