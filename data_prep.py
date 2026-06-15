@@ -313,13 +313,20 @@ def get_h2h_advantage(df, team1, team2, n=10):
         (df['home_score'].notna())
     ].sort_values('date').tail(n)
     if len(h2h) == 0: return 0.0
-    t1_pts = sum(
-        1.0 if (row['home_score']>row['away_score'] and row['home_team']==team1) or
-               (row['away_score']>row['home_score'] and row['away_team']==team1)
-        else 0.5 if row['home_score']==row['away_score'] else 0.0
-        for _, row in h2h.iterrows()
-    )
-    return t1_pts / len(h2h) - 0.5
+    now = pd.Timestamp.now()
+    T_DAYS = 4 * 365.25  # 4-year half-life: matches 4 years ago count ~37% as much
+    pts, total_w = 0.0, 0.0
+    for _, row in h2h.iterrows():
+        days_ago = max((now - pd.to_datetime(row['date'])).days, 0)
+        w = float(np.exp(-days_ago / T_DAYS))
+        result = (
+            1.0 if (row['home_score']>row['away_score'] and row['home_team']==team1) or
+                   (row['away_score']>row['home_score'] and row['away_team']==team1)
+            else 0.5 if row['home_score']==row['away_score'] else 0.0
+        )
+        pts += w * result
+        total_w += w
+    return (pts / total_w - 0.5) if total_w > 0 else 0.0
 
 def get_continental_form(df, team, as_of_date, n=8):
     best_matches, best_date = None, pd.Timestamp('1900-01-01')
