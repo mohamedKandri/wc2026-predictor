@@ -75,8 +75,9 @@ def nb_score_matrix(lambda_h, lambda_a, phi=None, max_goals=8):
 
 def compute_lambda(home_f, away_f, global_avg_h, global_avg_a, neutral=False):
     """
-    Compute expected goals from goal-based inputs only.
-    Fix B: no strength/Elo/FIFA signals — those belong in Step 6 (Elo logit) only.
+    Compute expected goals from goal-based inputs only, with an Elo mismatch
+    multiplier so extreme gaps (e.g. Germany vs Curaçao) produce realistic
+    scorelines rather than collapsing to 1-0.
     """
     ha = home_f.get('adj_scored',   home_f['avg_scored'])   / max(global_avg_h, 0.1)
     hd = home_f.get('adj_conceded', home_f['avg_conceded']) / max(global_avg_a, 0.1)
@@ -88,7 +89,20 @@ def compute_lambda(home_f, away_f, global_avg_h, global_avg_a, neutral=False):
     lh = ha * ad * global_avg_h * home_adv
     la = aa * hd * global_avg_a
 
-    # Fix #3: λ floor
+    # Elo mismatch multiplier: smoothly boosts favourite λ when gap > 200
+    # At Elo diff=200 → ×1.05; at 400 → ×1.18; at 600 → ×1.30 (capped at ×1.35)
+    elo_diff = home_f.get('elo', 1500) - away_f.get('elo', 1500)
+    if abs(elo_diff) > 200:
+        raw   = (abs(elo_diff) - 200) / 400        # 0 at diff=200, 1.0 at diff=600
+        boost = 1.0 + 0.35 * min(raw, 1.0)         # caps at ×1.35
+        if elo_diff > 0:
+            lh *= boost
+            la /= boost
+        else:
+            la *= boost
+            lh /= boost
+
+    # λ floor
     h_rank = home_f.get('fifa_rank', 50)
     a_rank = away_f.get('fifa_rank', 50)
     floor_h = LAMBDA_FLOOR_ELITE if a_rank <= 30 else LAMBDA_FLOOR_GENERAL
@@ -372,15 +386,24 @@ def full_predict(home_f, away_f, model, global_avg_h, global_avg_a,
     # Score matrix metadata
     flat = sorted([(sm[i][j]*100, i, j) for i in range(9) for j in range(9)], reverse=True)
 
-    # Most likely score: prefer the highest-probability scoreline that reflects
-    # the predicted outcome rather than always returning 0-0 (which is often the
-    # global argmax at low lambdas but communicates nothing useful).
-    predicted_outcome = max(p_final, key=p_final.get)  # 'home_win'/'draw'/'away_win'
+    # Most likely score: pick the scoreline matching the predicted outcome
+    # that is closest to the expected goals (lh, la). This avoids the
+    # "always 1-0" collapse that happens when using highest probability alone,
+    # since Poisson mode is always 1 for typical international football lambdas.
+    predicted_outcome = max(p_final, key=p_final.get)
     most_likely = (0, 0)
+    best_dist = float('inf')
     for _, i, j in flat:
-        if predicted_outcome == 'home_win'  and i > j: most_likely = (i, j); break
-        if predicted_outcome == 'draw'      and i == j: most_likely = (i, j); break
-        if predicted_outcome == 'away_win'  and j > i: most_likely = (i, j); break
+        matches_outcome = (
+            (predicted_outcome == 'home_win'  and i > j) or
+            (predicted_outcome == 'draw'      and i == j) or
+            (predicted_outcome == 'away_win'  and j > i)
+        )
+        if matches_outcome:
+            dist = (i - lh) ** 2 + (j - la) ** 2
+            if dist < best_dist:
+                best_dist = dist
+                most_likely = (i, j)
 
     return {
         # Final probabilities (%)
