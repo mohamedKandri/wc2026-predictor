@@ -1315,3 +1315,4 @@ with tab_friends:
                              if p["predicted_home_score"] is not None else "—"),
             } for p in all_p])
             st.dataframe(ap_df, use_container_width=True, hide_index=True)
+1
